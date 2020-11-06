@@ -106,6 +106,8 @@ class Run:
             angle += 45
         self.servo.go_to(0)
 
+       
+
     def localize_self(self):
         pos = self.create.sim_get_position()
         x_actual = pos[0]
@@ -123,14 +125,16 @@ class Run:
             y_actual = pos[1]
             x, y, theta = self.pf.get_estimate()
 
+        self.take_measurements()
+
         x, y, theta = self.pf.get_estimate()
         self.odometry.x = x
         self.odometry.y = y
         self.odometry.theta = theta
 
         # Reset Encoders
-        self.create._leftEncoderCount = 0.0
-        self.create._rightEncoderCount = 0.0
+        #self.create._leftEncoderCount = 0.0
+        #self.create._rightEncoderCount = 0.0
 
 
 
