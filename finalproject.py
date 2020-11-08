@@ -105,7 +105,7 @@ class Run:
             if self.mode == Mode.RRT:
                 if self.is_localized == False:
                     #for p in self.path:
-                    for i in range(2):
+                    for i in range(int(len(self.path) / 10)):
                         g_x = (self.path[i].state[0] / 100.0)
                         g_y = (self.map.height - self.path[i].state[1]) / 100.0
 
@@ -159,7 +159,6 @@ class Run:
                     dist = self.sonar.get_distance()
                     self.pf.measure(dist, 0)
                     self.visualize()                     
-                       
                     x, y, theta = self.pf.get_estimate()
                     
         
@@ -191,8 +190,6 @@ class Run:
                     self.rrt = rrt.RRT(self.map)
                     self.find_path(start, goal)
 
-    
-       
 
     def visualize(self):
         x, y, theta = self.pf.get_estimate()
