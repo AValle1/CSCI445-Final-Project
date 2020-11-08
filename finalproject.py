@@ -108,7 +108,9 @@ class Run:
                     for i in range(int(len(self.path) / 10)):
                         g_x = (self.path[i].state[0] / 100.0)
                         g_y = (self.map.height - self.path[i].state[1]) / 100.0
-
+                        old_x = self.odometry.x
+                        old_y = self.odometry.y
+                        old_theta = self.odometry.theta
                         while True:
                             state = self.create.update()
                             if state is not None:
@@ -122,7 +124,8 @@ class Run:
                                 d = math.sqrt(math.pow(g_x - self.odometry.x, 2) + math.pow(g_y - self.odometry.y, 2))
                                 if d < 0.05:
                                     break
-                    
+                        self.pf.move_by(self.odometry.x - old_x, self.odometry.y - old_y, self.odometry.theta - old_theta)
+
                     self.mode = Mode.Localize
                     start = self.create.sim_get_position()
                     current_position = (start[0], start[1])
