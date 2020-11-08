@@ -150,9 +150,11 @@ class Run:
                                 self.create.drive_direct(int(base_speed+output_theta), int(base_speed-output_theta))
 
                                 distance = math.sqrt(math.pow(goal_x - self.odometry.x, 2) + math.pow(goal_y - self.odometry.y, 2))
-                                if distance < 0.05:
+                                print(distance)
+                                if distance < 0.055:
                                     break
                     not_done = False
+                    self.create.drive_direct(0,0)
 
             else:
                 if self.is_localized == False:
