@@ -204,20 +204,6 @@ class Run:
             data.extend([particle.x, particle.y, 0.1, particle.theta])
         self.virtual_create.set_point_cloud(data)
 
-    def take_measurements(self):
-        angle = -90
-        while angle <= 90:
-            self.servo.go_to(angle)
-            self.time.sleep(2.0)
-            distance = self.sonar.get_distance()
-            print(distance)
-            self.pf.measure(distance, math.radians(angle))
-
-            self.visualize()
-
-            angle += 45
-        self.servo.go_to(0)
-
 
     def find_path(self, start, goal):
         print('Finding Path\n')
@@ -233,6 +219,45 @@ class Run:
             self.map.draw_line((self.path[idx].state[0], self.path[idx].state[1]), (self.path[idx+1].state[0], self.path[idx+1].state[1]), (0,255,0))
 
         self.map.save("finalproject_rrt.png")
+    
+    def arm_down(self):
+        self.arm.go_to(1, math.radians(80))
+        self.arm.go_to(3, math.radians(15))
+
+    def forward_kinematics(self, theta1, theta2):
+        self.arm.go_to(1, theta1)
+        self.time.sleep(5)
+        self.arm.go_to(3, theta2)
+        self.time.sleep(5)
+        L1 = 0.4 # estimated using V-REP (joint2 - joint4)
+        L2 = 0.39 # estimated using V-REP (joint4 - joint6)
+        z = L1 * math.cos(theta1) + L2 * math.cos(theta1 + theta2) + 0.3105
+        x = L1 * math.sin(theta1) + L2 * math.sin(theta1 + theta2) 
+        print("Go to {},{} deg, FK: [{},{},{}]".format(math.degrees(theta1), math.degrees(theta2), -x, 0, z))
+
+    def inverse_kinematics(self, x_i, z_i):
+        L1 = 0.4 # estimated using V-REP (joint2 - joint4)
+        L2 = 0.39 # estimated using V-REP (joint4 - joint6)
+        # Corrections for our coordinate system
+        z = z_i - 0.3105
+        x = -x_i
+        # compute inverse kinematics
+        r = math.sqrt(x*x + z*z)
+        alpha = math.acos((L1*L1 + L2*L2 - r*r) / (2*L1*L2))
+        theta2 = math.pi - alpha
+
+        beta = math.acos((r*r + L1*L1 - L2*L2) / (2*L1*r))
+        theta1 = math.atan2(x, z) - beta
+        if theta2 < -math.pi / 2.0 or theta2 > math.pi / 2.0 or theta1 < -math.pi / 2.0 or theta1 > math.pi / 2.0:
+            theta2 = math.pi + alpha
+            theta1 = math.atan2(x, z) + beta
+        if theta2 < -math.pi / 2.0 or theta2 > math.pi / 2.0 or theta1 < -math.pi / 2.0 or theta1 > math.pi / 2.0:
+            print("Not possible")
+            return
+
+        self.arm.go_to(1, theta1)
+        self.arm.go_to(3, theta2)
+        print("Go to [{},{}], IK: [{} deg, {} deg]".format(x_i, z_i, math.degrees(theta1), math.degrees(theta2)))
 
     def run(self):
         self.create.start()
@@ -253,15 +278,16 @@ class Run:
         ])
 
 
-        self.arm.go_to(4, math.radians(-90))
-        self.time.sleep(4)
+     
         self.visualize()
 
 
        
-        self.go_to_arm()
-        
-        
+        #self.go_to_arm()
+        self.time.sleep(10)
+        self.forward_kinematics(math.radians(90), math.radians(0))
+        self.time.sleep(100)
+    
        
 
 
