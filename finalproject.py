@@ -76,7 +76,7 @@ class Run:
         self.create.drive_direct(0, 0)
         self.pf.move_by(self.odometry.x - old_x, self.odometry.y - old_y, self.odometry.theta - old_theta)
 
-    def go_to_arm(self):
+    def go_to_arm(self, goal):
         start = self.create.sim_get_position()
        
         #Start Localizing
@@ -88,7 +88,6 @@ class Run:
         #Initial RRT
         start = self.create.sim_get_position()
         current_position = (start[0], start[1])
-        goal = (40, 120)
         goal_x = goal[0] / 100.0
         goal_y =  (self.map.height - goal[1]) / 100.0
         self.odometry.x = start[0]
@@ -226,14 +225,15 @@ class Run:
 
     def forward_kinematics(self, theta1, theta2):
         self.arm.go_to(1, theta1)
-        self.time.sleep(5)
+        self.time.sleep(2)
         self.arm.go_to(3, theta2)
-        self.time.sleep(5)
+        self.time.sleep(2)
         L1 = 0.4 # estimated using V-REP (joint2 - joint4)
         L2 = 0.39 # estimated using V-REP (joint4 - joint6)
         z = L1 * math.cos(theta1) + L2 * math.cos(theta1 + theta2) + 0.3105
-        x = L1 * math.sin(theta1) + L2 * math.sin(theta1 + theta2) 
+        x = L1 * math.sin(theta1) + L2 * math.sin(theta1 + theta2)
         print("Go to {},{} deg, FK: [{},{},{}]".format(math.degrees(theta1), math.degrees(theta2), -x, 0, z))
+        return((x, z))
 
     def inverse_kinematics(self, x_i, z_i):
         L1 = 0.4 # estimated using V-REP (joint2 - joint4)
@@ -277,16 +277,21 @@ class Run:
             create2.Sensor.RightEncoderCounts,
         ])
 
-
-     
         self.visualize()
-
-
        
-        #self.go_to_arm()
+        # First Face Arm Towards Ground
+        self.arm.go_to(5, math.radians(90))
+        self.time.sleep(2)
+
+        # Calculate Amount to Offset Goal Position By
+        offset = self.forward_kinematics(math.radians(90), math.radians(0))
         self.time.sleep(10)
-        self.forward_kinematics(math.radians(90), math.radians(0))
-        self.time.sleep(100)
+
+        # Tell Create To Go to Arm
+        # Note: Please change Arms Coordinate Position here when changing start position of arm
+        arm_postion = (1.6001, 3.3999)
+        arm_position_in_pixel_coordinates = ((arm_postion[0]*100) + offset[0], self.map.height - arm_postion[1]*100)
+        self.go_to_arm(arm_position_in_pixel_coordinates)
     
        
 
