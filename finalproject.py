@@ -76,6 +76,7 @@ class Run:
         self.create.drive_direct(0, 0)
         self.pf.move_by(self.odometry.x - old_x, self.odometry.y - old_y, self.odometry.theta - old_theta)
 
+
     def go_to_arm(self, goal):
         start = self.create.sim_get_position()
        
@@ -104,7 +105,7 @@ class Run:
             if self.mode == Mode.RRT:
                 if self.is_localized == False:
                     #for p in self.path:
-                    for i in range(int(len(self.path) / 10)):
+                    for i in range(2):
                         g_x = (self.path[i].state[0] / 100.0)
                         g_y = (self.map.height - self.path[i].state[1]) / 100.0
                         old_x = self.odometry.x
@@ -124,6 +125,7 @@ class Run:
                                 if d < 0.05:
                                     break
                         self.pf.move_by(self.odometry.x - old_x, self.odometry.y - old_y, self.odometry.theta - old_theta)
+                        
 
                     self.mode = Mode.Localize
                     start = self.create.sim_get_position()
@@ -149,8 +151,8 @@ class Run:
                                 self.create.drive_direct(int(base_speed+output_theta), int(base_speed-output_theta))
 
                                 distance = math.sqrt(math.pow(goal_x - self.odometry.x, 2) + math.pow(goal_y - self.odometry.y, 2))
-                                print(distance)
-                                if distance < 0.055:
+                               
+                                if distance < 0.05:
                                     break
                     not_done = False
                     self.create.drive_direct(0,0)
@@ -180,6 +182,7 @@ class Run:
                         x, y, theta = self.pf.get_estimate()
                         self.odometry.x = x
                         self.odometry.y = y
+                        self.odometry.theta = theta
                         self.map = rrt_map.Map("configuration_space.png")
                         self.rrt = rrt.RRT(self.map)
                         self.find_path(start, goal)
@@ -219,9 +222,25 @@ class Run:
 
         self.map.save("finalproject_rrt.png")
     
-    def arm_down(self):
-        self.arm.go_to(1, math.radians(80))
-        self.arm.go_to(3, math.radians(15))
+    def get_arm_position_in_pixels(self, position):
+        
+        # If arm on East or West
+        if 0.0250 <= position[1] <= 3.0250:
+            if position[0] < 0.0250:
+                pass
+            else:
+                pass
+
+        # If Arm is on North
+        elif position[1] > 0.0250:
+            p = (((position[0] + 0.05)*100), self.map.height - ((position[1] - 0.9) * 100))
+            #print("Position = {}".format(position))
+            #print("Returning {}".format(p))
+            return p
+
+        # If Arm is on South
+        else:
+            pass
 
     def forward_kinematics(self, theta1, theta2):
         self.arm.go_to(1, theta1)
@@ -232,7 +251,7 @@ class Run:
         L2 = 0.39 # estimated using V-REP (joint4 - joint6)
         z = L1 * math.cos(theta1) + L2 * math.cos(theta1 + theta2) + 0.3105
         x = L1 * math.sin(theta1) + L2 * math.sin(theta1 + theta2)
-        print("Go to {},{} deg, FK: [{},{},{}]".format(math.degrees(theta1), math.degrees(theta2), -x, 0, z))
+        #print("Go to {},{} deg, FK: [{},{},{}]".format(math.degrees(theta1), math.degrees(theta2), -x, 0, z))
         return((x, z))
 
     def inverse_kinematics(self, x_i, z_i):
@@ -280,19 +299,39 @@ class Run:
         self.visualize()
        
         # First Face Arm Towards Ground
-        self.arm.go_to(5, math.radians(90))
-        self.time.sleep(2)
+        #self.arm.go_to(5, math.radians(90))
+        #self.time.sleep(2)
 
-        # Calculate Amount to Offset Goal Position By
-        offset = self.forward_kinematics(math.radians(90), math.radians(0))
-        self.time.sleep(10)
-
+        
         # Tell Create To Go to Arm
         # Note: Please change Arms Coordinate Position here when changing start position of arm
         arm_postion = (1.6001, 3.3999)
-        arm_position_in_pixel_coordinates = ((arm_postion[0]*100) + offset[0], self.map.height - arm_postion[1]*100)
+        arm_position_in_pixel_coordinates = self.get_arm_position_in_pixels(arm_postion)
         self.go_to_arm(arm_position_in_pixel_coordinates)
-    
+        self.time.sleep(5)
+        self.go_to_angle(math.radians(-150))
+        self.time.sleep(5)
+        
+        # Put Arm Down
+        ang = 1
+
+        while ang <= 70:
+            self.arm.go_to(1, math.radians(ang))
+            self.time.sleep(0.1)
+            ang = ang + 1
+        
+        
+        ang = 1
+
+        while ang <= 42:
+            self.arm.go_to(3, math.radians(ang))
+            self.time.sleep(0.1)
+            ang = ang + 1
+
+        self.time.sleep(100)
+        
+
+       
        
 
 
