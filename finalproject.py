@@ -240,7 +240,7 @@ class Run:
 
         # If Arm is on North
         elif position[1] > 0.0250:
-            p = (((position[0])*100), self.map.height - ((position[1] - 0.969) * 100))
+            p = (((position[0])*100), self.map.height - ((position[1] - 0.96) * 100))
             #print("Position = {}".format(position))
             #print("Returning {}".format(p))
             return p
@@ -338,8 +338,8 @@ class Run:
             self.time.sleep(0.1)
             ang = ang + 1
 
-        self.arm.close_gripper()
-        self.time.sleep(5)
+        #self.arm.close_gripper()
+        self.time.sleep(10)
 
         ang = 69
 
