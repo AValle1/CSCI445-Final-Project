@@ -179,9 +179,16 @@ class Run:
 
                     if math.sqrt(math.pow(robotPos[0] - x, 2) + math.pow(robotPos[1] - y, 2)) < 0.1:
                         self.is_localized = True
-                        x, y, theta = self.pf.get_estimate()
+                        
+                        x_est, y_est, theta = self.pf.get_estimate()
+                        """
                         self.odometry.x = x
                         self.odometry.y = y
+                        self.odometry.theta = theta
+                        """
+                        start = self.create.sim_get_position()
+                        self.odometry.x = start[0]
+                        self.odometry.y = start[1]
                         self.odometry.theta = theta
                         self.map = rrt_map.Map("configuration_space.png")
                         self.rrt = rrt.RRT(self.map)
@@ -233,7 +240,7 @@ class Run:
 
         # If Arm is on North
         elif position[1] > 0.0250:
-            p = (((position[0] + 0.05)*100), self.map.height - ((position[1] - 0.9) * 100))
+            p = (((position[0])*100), self.map.height - ((position[1] - 0.969) * 100))
             #print("Position = {}".format(position))
             #print("Returning {}".format(p))
             return p
@@ -296,26 +303,29 @@ class Run:
             create2.Sensor.RightEncoderCounts,
         ])
 
-        self.visualize()
+        #self.visualize()
        
         # First Face Arm Towards Ground
         #self.arm.go_to(5, math.radians(90))
         #self.time.sleep(2)
 
-        
+    
         # Tell Create To Go to Arm
         # Note: Please change Arms Coordinate Position here when changing start position of arm
         arm_postion = (1.6001, 3.3999)
         arm_position_in_pixel_coordinates = self.get_arm_position_in_pixels(arm_postion)
         self.go_to_arm(arm_position_in_pixel_coordinates)
         self.time.sleep(5)
-        self.go_to_angle(math.radians(-150))
+        
+        
+        
+        self.go_to_angle(math.radians(-90))
         self.time.sleep(5)
         
         # Put Arm Down
         ang = 1
 
-        while ang <= 70:
+        while ang <= 60:
             self.arm.go_to(1, math.radians(ang))
             self.time.sleep(0.1)
             ang = ang + 1
@@ -323,14 +333,22 @@ class Run:
         
         ang = 1
 
-        while ang <= 42:
+        while ang <= 55:
             self.arm.go_to(3, math.radians(ang))
             self.time.sleep(0.1)
             ang = ang + 1
 
-        self.time.sleep(100)
-        
+        self.arm.close_gripper()
+        self.time.sleep(5)
 
+        ang = 69
+
+        while ang >= 0:
+            self.arm.go_to(1, math.radians(ang))
+            self.time.sleep(0.1)
+            ang = ang - 1
+        
+        self.time.sleep(10)
        
        
 

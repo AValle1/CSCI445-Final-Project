@@ -2,6 +2,7 @@ from PIL import Image, ImageDraw
 import numpy as np
 import math
 
+np.random.seed(0)
 
 def distance(a, b):
     return math.sqrt(math.pow(a[0] - b[0], 2) + math.pow(a[1] - b[1], 2))
