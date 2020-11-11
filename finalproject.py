@@ -11,6 +11,10 @@ import rrt
 import numpy as np
 from enum import Enum
 
+class Mode(Enum):
+    RRT      = 1
+    Localize = 2
+
 
 class Run:
     def __init__(self, factory):
@@ -29,7 +33,9 @@ class Run:
         self.mapJ = lab8_map.Map("lab8_map.json")
         self.map = rrt_map.Map("configuration_space.png")
         self.rrt = rrt.RRT(self.map)
+        self.mode = Mode.RRT
         self.path = []
+        self.is_localized = False
 
         # TODO identify good PID controller gains
         self.pd_controller = pd_controller.PDController(1000, 100, -75, 75)
@@ -70,19 +76,134 @@ class Run:
         self.create.drive_direct(0, 0)
         self.pf.move_by(self.odometry.x - old_x, self.odometry.y - old_y, self.odometry.theta - old_theta)
 
-    def go_to_goal(self, goal_x, goal_y):
-        old_x = self.odometry.x
-        old_y = self.odometry.y
-        old_theta = self.odometry.theta
-        while math.sqrt(math.pow(goal_x - self.odometry.x, 2) + math.pow(goal_y - self.odometry.y, 2)) > 0.1:
-            goal_theta = math.atan2(goal_y - self.odometry.y, goal_x - self.odometry.x)
-            output_theta = self.pidTheta.update(self.odometry.theta, goal_theta, self.time.time())
-            distance = math.sqrt(math.pow(goal_x - self.odometry.x, 2) + math.pow(goal_y - self.odometry.y, 2))
-            output_distance = self.pidDistance.update(0, distance, self.time.time())
-            self.create.drive_direct(int(output_theta + output_distance), int(-output_theta + output_distance))
-            self.sleep(0.01)
-        self.create.drive_direct(0, 0)
-        self.pf.move_by(self.odometry.x - old_x, self.odometry.y - old_y, self.odometry.theta - old_theta)
+
+    def go_to_arm(self, goal):
+        start = self.create.sim_get_position()
+       
+        #Start Localizing
+        dist = self.sonar.get_distance()
+        self.pf.measure(dist, 0)
+        self.visualize()                     
+            
+        
+        #Initial RRT
+        start = self.create.sim_get_position()
+        current_position = (start[0], start[1])
+        goal_x = goal[0] / 100.0
+        goal_y =  (self.map.height - goal[1]) / 100.0
+        self.odometry.x = start[0]
+        self.odometry.y = start[1]
+
+        self.find_path(start, goal)
+        self.is_localized = False
+        not_done = True
+        base_speed = 100
+
+        while not_done == True:
+            #print(self.mode)
+
+            if self.mode == Mode.RRT:
+                if self.is_localized == False:
+                    #for p in self.path:
+                    for i in range(2):
+                        g_x = (self.path[i].state[0] / 100.0)
+                        g_y = (self.map.height - self.path[i].state[1]) / 100.0
+                        old_x = self.odometry.x
+                        old_y = self.odometry.y
+                        old_theta = self.odometry.theta
+                        while True:
+                            state = self.create.update()
+                            if state is not None:
+                                self.odometry.update(state.leftEncoderCounts, state.rightEncoderCounts)
+                                goal_theta = math.atan2(g_y - self.odometry.y, g_x - self.odometry.x)
+                                theta = math.atan2(math.sin(self.odometry.theta), math.cos(self.odometry.theta))
+                                output_theta = self.pidTheta2.update(self.odometry.theta, goal_theta, self.time.time())
+                                self.create.drive_direct(int(base_speed+output_theta), int(base_speed-output_theta))
+
+
+                                d = math.sqrt(math.pow(g_x - self.odometry.x, 2) + math.pow(g_y - self.odometry.y, 2))
+                                if d < 0.05:
+                                    break
+                        self.pf.move_by(self.odometry.x - old_x, self.odometry.y - old_y, self.odometry.theta - old_theta)
+                        
+
+                    self.mode = Mode.Localize
+                    start = self.create.sim_get_position()
+                    current_position = (start[0], start[1])
+                    self.odometry.x = start[0]
+                    self.odometry.y = start[1]
+                    self.map = rrt_map.Map("configuration_space.png")
+                    self.rrt = rrt.RRT(self.map)
+                    self.find_path(start, goal)
+
+                else:
+                    for p in self.path:
+                        goal_x = (p.state[0] / 100.0)
+                        goal_y = (self.map.height - p.state[1]) / 100.0
+
+                        while True:
+                            state = self.create.update()
+                            if state is not None:
+                                self.odometry.update(state.leftEncoderCounts, state.rightEncoderCounts)
+                                goal_theta = math.atan2(goal_y - self.odometry.y, goal_x - self.odometry.x)
+                                theta = math.atan2(math.sin(self.odometry.theta), math.cos(self.odometry.theta))
+                                output_theta = self.pidTheta2.update(self.odometry.theta, goal_theta, self.time.time())
+                                self.create.drive_direct(int(base_speed+output_theta), int(base_speed-output_theta))
+
+                                distance = math.sqrt(math.pow(goal_x - self.odometry.x, 2) + math.pow(goal_y - self.odometry.y, 2))
+                               
+                                if distance < 0.05:
+                                    break
+                    not_done = False
+                    self.create.drive_direct(0,0)
+
+            else:
+                if self.is_localized == False:
+                    self.create.drive_direct(0,0)
+                    robotPos = self.create.sim_get_position()
+                   
+                    dist = self.sonar.get_distance()
+                    self.pf.measure(dist, 0)
+                    self.visualize()                     
+                    x, y, theta = self.pf.get_estimate()
+                    
+        
+                    self.mode = Mode.RRT
+                    start = self.create.sim_get_position()
+                    current_position = (start[0], start[1])
+                    self.odometry.x = start[0]
+                    self.odometry.y = start[1]
+                    self.map = rrt_map.Map("configuration_space.png")
+                    self.rrt = rrt.RRT(self.map)
+                    self.find_path(start, goal)
+
+                    if math.sqrt(math.pow(robotPos[0] - x, 2) + math.pow(robotPos[1] - y, 2)) < 0.1:
+                        self.is_localized = True
+                        
+                        x_est, y_est, theta = self.pf.get_estimate()
+                        """
+                        self.odometry.x = x
+                        self.odometry.y = y
+                        self.odometry.theta = theta
+                        """
+                        start = self.create.sim_get_position()
+                        self.odometry.x = start[0]
+                        self.odometry.y = start[1]
+                        self.odometry.theta = theta
+                        self.map = rrt_map.Map("configuration_space.png")
+                        self.rrt = rrt.RRT(self.map)
+                        self.find_path(start, goal)
+
+                else:
+                    self.mode = Mode.RRT
+                    start = self.create.sim_get_position()
+                    current_position = (start[0], start[1])
+                    self.odometry.x = start[0]
+                    self.odometry.y = start[1]
+                    self.map = rrt_map.Map("configuration_space.png")
+                    self.rrt = rrt.RRT(self.map)
+                    self.find_path(start, goal)
+
 
     def visualize(self):
         x, y, theta = self.pf.get_estimate()
@@ -92,53 +213,12 @@ class Run:
             data.extend([particle.x, particle.y, 0.1, particle.theta])
         self.virtual_create.set_point_cloud(data)
 
-    def take_measurements(self):
-        angle = -90
-        while angle <= 90:
-            self.servo.go_to(angle)
-            self.time.sleep(2.0)
-            distance = self.sonar.get_distance()
-            print(distance)
-            self.pf.measure(distance, math.radians(angle))
 
-            self.visualize()
-
-            angle += 45
-        self.servo.go_to(0)
-
-    def localize_self(self):
-        pos = self.create.sim_get_position()
-        x_actual = pos[0]
-        y_actual = pos[1]
-        x, y, theta = self.pf.get_estimate()
-
-        while math.sqrt(math.pow(x_actual - x, 2) + math.pow(y_actual - y, 2)) > 0.1:
-            self.go_to_angle(self.odometry.theta + math.radians(20))
-            distance = self.sonar.get_distance()
-            self.pf.measure(distance, 0)
-            self.visualize()
-            #self.take_measurements()
-            pos = self.create.sim_get_position()
-            x_actual = pos[0]
-            y_actual = pos[1]
-            x, y, theta = self.pf.get_estimate()
-
-        x, y, theta = self.pf.get_estimate()
-        self.odometry.x = x
-        self.odometry.y = y
-        self.odometry.theta = theta
-
-        # Reset Encoders
-        self.create._leftEncoderCount = 0.0
-        self.create._rightEncoderCount = 0.0
-
-
-
-    def find_path(self):
+    def find_path(self, start, goal):
         print('Finding Path\n')
-        start = (self.odometry.x*100, self.map.height - (self.odometry.y*100))
-        self.rrt.build(start, 3000, 10)
-        x_goal = self.rrt.nearest_neighbor((40, 120))
+        begin = (start[0]*100, self.map.height - (start[1]*100))
+        self.rrt.build(begin, 3000, 10)
+        x_goal = self.rrt.nearest_neighbor(goal)
         self.path = self.rrt.shortest_path(x_goal)
 
         for v in self.rrt.T:
@@ -148,37 +228,62 @@ class Run:
             self.map.draw_line((self.path[idx].state[0], self.path[idx].state[1]), (self.path[idx+1].state[0], self.path[idx+1].state[1]), (0,255,0))
 
         self.map.save("finalproject_rrt.png")
+    
+    def get_arm_position_in_pixels(self, position):
+        
+        # If arm on East or West
+        if 0.0250 <= position[1] <= 3.0250:
+            if position[0] < 0.0250:
+                pass
+            else:
+                pass
 
-    def follow_path(self):
-        print('Following Path\n')
-        base_speed = 100
-        print('Points in path: ')
-        for p in self.path:
-            goal_x = p.state[0] / 100.0
-            goal_y =  (self.map.height - p.state[1]) / 100.0
-            print(goal_x, goal_y)
+        # If Arm is on North
+        elif position[1] > 0.0250:
+            p = (((position[0])*100), self.map.height - ((position[1] - 0.96) * 100))
+            #print("Position = {}".format(position))
+            #print("Returning {}".format(p))
+            return p
 
-        #self.create.drive_direct(-100, -100)
-        #self.sleep(2)
-        #self.create.drive_direct(0,0)
+        # If Arm is on South
+        else:
+            pass
 
-        for p in self.path:
-            goal_x = (p.state[0] / 100.0)
-            goal_y = (self.map.height - p.state[1]) / 100.0
+    def forward_kinematics(self, theta1, theta2):
+        self.arm.go_to(1, theta1)
+        self.time.sleep(2)
+        self.arm.go_to(3, theta2)
+        self.time.sleep(2)
+        L1 = 0.4 # estimated using V-REP (joint2 - joint4)
+        L2 = 0.39 # estimated using V-REP (joint4 - joint6)
+        z = L1 * math.cos(theta1) + L2 * math.cos(theta1 + theta2) + 0.3105
+        x = L1 * math.sin(theta1) + L2 * math.sin(theta1 + theta2)
+        #print("Go to {},{} deg, FK: [{},{},{}]".format(math.degrees(theta1), math.degrees(theta2), -x, 0, z))
+        return((x, z))
 
-            while True:
-                state = self.create.update()
-                if state is not None:
-                    self.odometry.update(state.leftEncoderCounts, state.rightEncoderCounts)
-                    goal_theta = math.atan2(goal_y - self.odometry.y, goal_x - self.odometry.x)
-                    theta = math.atan2(math.sin(self.odometry.theta), math.cos(self.odometry.theta))
-                    output_theta = self.pidTheta2.update(self.odometry.theta, goal_theta, self.time.time())
-                    self.create.drive_direct(int(base_speed+output_theta), int(base_speed-output_theta))
-                    # print("[{},{},{}]".format(self.odometry.x, self.odometry.y, math.degrees(self.odometry.theta)))
+    def inverse_kinematics(self, x_i, z_i):
+        L1 = 0.4 # estimated using V-REP (joint2 - joint4)
+        L2 = 0.39 # estimated using V-REP (joint4 - joint6)
+        # Corrections for our coordinate system
+        z = z_i - 0.3105
+        x = -x_i
+        # compute inverse kinematics
+        r = math.sqrt(x*x + z*z)
+        alpha = math.acos((L1*L1 + L2*L2 - r*r) / (2*L1*L2))
+        theta2 = math.pi - alpha
 
-                    distance = math.sqrt(math.pow(goal_x - self.odometry.x, 2) + math.pow(goal_y - self.odometry.y, 2))
-                    if distance < 0.05:
-                        break
+        beta = math.acos((r*r + L1*L1 - L2*L2) / (2*L1*r))
+        theta1 = math.atan2(x, z) - beta
+        if theta2 < -math.pi / 2.0 or theta2 > math.pi / 2.0 or theta1 < -math.pi / 2.0 or theta1 > math.pi / 2.0:
+            theta2 = math.pi + alpha
+            theta1 = math.atan2(x, z) + beta
+        if theta2 < -math.pi / 2.0 or theta2 > math.pi / 2.0 or theta1 < -math.pi / 2.0 or theta1 > math.pi / 2.0:
+            print("Not possible")
+            return
+
+        self.arm.go_to(1, theta1)
+        self.arm.go_to(3, theta2)
+        print("Go to [{},{}], IK: [{} deg, {} deg]".format(x_i, z_i, math.degrees(theta1), math.degrees(theta2)))
 
     def run(self):
         self.create.start()
@@ -198,16 +303,54 @@ class Run:
             create2.Sensor.RightEncoderCounts,
         ])
 
+        #self.visualize()
+       
+        # First Face Arm Towards Ground
+        #self.arm.go_to(5, math.radians(90))
+        #self.time.sleep(2)
 
-        self.arm.go_to(4, math.radians(-90))
-        self.time.sleep(4)
-        self.visualize()
+    
+        # Tell Create To Go to Arm
+        # Note: Please change Arms Coordinate Position here when changing start position of arm
+        arm_postion = (1.6001, 3.3999)
+        arm_position_in_pixel_coordinates = self.get_arm_position_in_pixels(arm_postion)
+        self.go_to_arm(arm_position_in_pixel_coordinates)
+        self.time.sleep(5)
+        
+        
+        
+        self.go_to_angle(math.radians(-90))
+        self.time.sleep(5)
+        
+        # Put Arm Down
+        ang = 1
 
+        while ang <= 60:
+            self.arm.go_to(1, math.radians(ang))
+            self.time.sleep(0.1)
+            ang = ang + 1
+        
+        
+        ang = 1
 
-        self.localize_self()
-        self.find_path()
-        self.follow_path()
+        while ang <= 55:
+            self.arm.go_to(3, math.radians(ang))
+            self.time.sleep(0.1)
+            ang = ang + 1
 
+        #self.arm.close_gripper()
+        self.time.sleep(10)
+
+        ang = 69
+
+        while ang >= 0:
+            self.arm.go_to(1, math.radians(ang))
+            self.time.sleep(0.1)
+            ang = ang - 1
+        
+        self.time.sleep(10)
+       
+       
 
 
         #posC = self.create.sim_get_position()
