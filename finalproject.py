@@ -204,7 +204,7 @@ class Run:
                 self.sleep(2)
                 self.create.drive_direct(0,0)
             else:
-                self.go_to_angle(math.radians(185))
+                self.go_to_angle(math.radians(0))
                 self.time.sleep(5)
                 self.create.drive_direct(40,40)
                 self.sleep(1)
