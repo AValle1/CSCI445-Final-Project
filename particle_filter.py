@@ -18,6 +18,7 @@ class Particle:
 class ParticleFilter:
     def __init__(self, map, num_particles, translation_variance, rotation_variance, measurement_variance):
         self._particles = []
+        self.num_particles = num_particles
         self._map = map
         self._translation_variance = translation_variance
         self._rotation_variance = rotation_variance
@@ -32,6 +33,21 @@ class ParticleFilter:
                 np.random.uniform(0, 2*math.pi),
                 # 0,
                 math.log(p)))
+
+    def set_particles(self, start, orientation):
+        self._particles.clear()
+        p = 1.0 / self.num_particles
+        for i in range(0, self.num_particles):
+            self._particles.append(Particle(
+                start[0],
+                start[1],
+                # choice([-math.pi, -math.pi/2, 0, math.pi/2]),
+                orientation,
+                # 0,
+                math.log(p)))
+
+    def clear_particles(self):
+        self._particles.clear()
 
     def move_by(self, x, y, theta):
         for particle in self._particles:
@@ -48,9 +64,9 @@ class ParticleFilter:
         for particle in self._particles:
             # compute what the distance should be, if particle position is accurate
             distance = self._map.closest_distance([particle.x, particle.y], particle.theta + servo_angle_in_rad)
-            print(particle.theta + servo_angle_in_rad)
-            print([particle.x, particle.y])
-            print(distance)
+            #print(particle.theta + servo_angle_in_rad)
+            #print([particle.x, particle.y])
+            #print(distance)
             # compute the probability P[measured z | robot @ x]
             p = scipy.stats.norm(distance, self._measurement_variance).pdf(z)
             if p == 0:
