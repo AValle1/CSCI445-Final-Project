@@ -10,11 +10,6 @@ import rrt_map
 import particle_filter
 import rrt
 import numpy as np
-from enum import Enum
-
-class Mode(Enum):
-    RRT      = 1
-    Localize = 2
 
 
 class Run:
@@ -34,7 +29,6 @@ class Run:
         self.mapJ = lab8_map.Map("lab8_map.json")
         self.map = rrt_map.Map("configuration_space.png")
         self.rrt = rrt.RRT(self.map)
-        self.mode = Mode.RRT
         self.path = []
         self.is_localized = False
 
@@ -223,9 +217,9 @@ class Run:
 
         # If Arm is on South
         else:
-            self.go_to_angle(math.radians(90))
+            self.go_to_angle(math.radians(65))
             self.time.sleep(5)
-            self.create.drive_direct(39,39)
+            self.create.drive_direct(-20,-20)
             self.sleep(1)
             self.create.drive_direct(0,0)
 
@@ -259,17 +253,9 @@ class Run:
         if theta2 < -math.pi / 2.0 or theta2 > math.pi / 2.0 or theta1 < -math.pi / 2.0 or theta1 > math.pi / 2.0:
             theta2 = math.pi + alpha
             theta1 = math.atan2(y, z) + beta
-        # if theta2 < -math.pi / 2.0 or theta2 > math.pi / 2.0 or theta1 < -math.pi / 2.0 or theta1 > math.pi / 2.0:
-        #     print("Not possible")
-        #     return
 
         theta1_diff = theta1 - theta1_i
         theta2_diff = theta2 - theta2_i
-        # if theta1 < theta1_i:
-        #     theta1_diff = -theta1_diff
-        #
-        # if theta2 < theta2_i:
-        #     theta2_diff = -theta2
 
         theta1_inc = theta1_i
         theta2_inc = theta2_i
@@ -285,7 +271,7 @@ class Run:
 
 
         return theta1, theta2
-
+        
     def run(self):
         self.create.start()
         self.create.safe()
@@ -323,6 +309,8 @@ class Run:
         self.move_slightly_forward(arm_postion)
 
 
+        # Bring arm down and pick up cup then place it on shelf
+        # Note: Change shelf number here (currently placing on shelf number 4)
         self.arm.go_to(0, math.radians(0))
 
         theta1_i = 0
@@ -334,8 +322,6 @@ class Run:
         print(math.degrees(theta1_i), math.degrees(theta2_i), 'theta 1 and 2 initial')
         self.arm.close_gripper()
         self.time.sleep(10)
-
-
 
         [theta1_i, theta2_i] = self.inverse_kinematics(.9, 0.4, theta1_i, theta2_i)
         joint_1_rotate = 0
@@ -388,44 +374,5 @@ class Run:
         else:
             print('not valid')
 
-        """
-        # Put Arm Down and close gripper
-        ang = 1.0
-
-        while ang <= 63.33:
-            self.arm.go_to(1, math.radians(ang))
-            self.time.sleep(0.1)
-            ang = ang + 1.0555        
-        
-        ang = 1.0
-
-        while ang <= 53.86:
-            self.arm.go_to(3, math.radians(ang))
-            self.time.sleep(0.1)
-            ang = ang + 1.0772
-
-        self.arm.close_gripper()
+        self.arm.open_gripper()
         self.time.sleep(10)
-
-        ang = 63.33
-
-        while ang >= 1:
-            self.arm.go_to(1, math.radians(ang))
-            self.time.sleep(0.1)
-            ang = ang - 1.0555
-        
-        self.time.sleep(100)
-        """
-       
-
-
-        #posC = self.create.sim_get_position()
-
-        #print(posC)
-
-        #self.arm.go_to(4, math.radians(-90))
-        #self.arm.go_to(5, math.radians(90))
-        #self.time.sleep(100)
-
-
-        #self.time.sleep(0.01)
