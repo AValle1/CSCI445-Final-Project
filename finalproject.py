@@ -242,29 +242,49 @@ class Run:
         #print("Go to {},{} deg, FK: [{},{},{}]".format(math.degrees(theta1), math.degrees(theta2), -x, 0, z))
         return((x, z))
 
-    def inverse_kinematics(self, x_i, z_i):
+    def inverse_kinematics(self, y_i, z_i, theta1_i, theta2_i):
         L1 = 0.4 # estimated using V-REP (joint2 - joint4)
-        L2 = 0.39 # estimated using V-REP (joint4 - joint6)
+        L2 = 0.7 # estimated using V-REP (joint4 - dummy)
         # Corrections for our coordinate system
-        z = z_i - 0.3105
-        x = -x_i
+        z = z_i - .3105
+        y = y_i
         # compute inverse kinematics
-        r = math.sqrt(x*x + z*z)
+        r = math.sqrt(y*y + z*z)
         alpha = math.acos((L1*L1 + L2*L2 - r*r) / (2*L1*L2))
         theta2 = math.pi - alpha
 
         beta = math.acos((r*r + L1*L1 - L2*L2) / (2*L1*r))
-        theta1 = math.atan2(x, z) - beta
+        theta1 = math.atan2(y, z) - beta
+        print(math.degrees(theta1), math.degrees(theta2),'theta 1 and 2')
         if theta2 < -math.pi / 2.0 or theta2 > math.pi / 2.0 or theta1 < -math.pi / 2.0 or theta1 > math.pi / 2.0:
             theta2 = math.pi + alpha
-            theta1 = math.atan2(x, z) + beta
-        if theta2 < -math.pi / 2.0 or theta2 > math.pi / 2.0 or theta1 < -math.pi / 2.0 or theta1 > math.pi / 2.0:
-            print("Not possible")
-            return
+            theta1 = math.atan2(y, z) + beta
+        # if theta2 < -math.pi / 2.0 or theta2 > math.pi / 2.0 or theta1 < -math.pi / 2.0 or theta1 > math.pi / 2.0:
+        #     print("Not possible")
+        #     return
 
-        self.arm.go_to(1, theta1)
-        self.arm.go_to(3, theta2)
-        print("Go to [{},{}], IK: [{} deg, {} deg]".format(x_i, z_i, math.degrees(theta1), math.degrees(theta2)))
+        theta1_diff = theta1 - theta1_i
+        theta2_diff = theta2 - theta2_i
+        # if theta1 < theta1_i:
+        #     theta1_diff = -theta1_diff
+        #
+        # if theta2 < theta2_i:
+        #     theta2_diff = -theta2
+
+        theta1_inc = theta1_i
+        theta2_inc = theta2_i
+        for i in range(0, 20):
+            theta2_inc = theta2_inc + theta2_diff/20
+            print(math.degrees(theta2_inc),' theta 2 inc')
+            self.arm.go_to(3, theta2_inc)
+            self.time.sleep(.5)
+            theta1_inc = theta1_inc + theta1_diff/20
+            print(math.degrees(theta1_inc), ' theta 1 inc')
+            self.arm.go_to(1, theta1_inc)
+            self.time.sleep(.5)
+
+
+        return theta1, theta2
 
     def run(self):
         self.create.start()
@@ -293,7 +313,7 @@ class Run:
        
         # Tell Create To Go to Arm
         # Note: Please change Arms Coordinate Position here when changing start position of arm
-        arm_postion = (3.3941, 2.5999)
+        arm_postion = (1.6001, 3.3999)
         arm_position_in_pixel_coordinates = self.get_arm_position_in_pixels(arm_postion)
         self.go_to_arm(arm_position_in_pixel_coordinates)
         self.time.sleep(5)
@@ -302,6 +322,73 @@ class Run:
         # Note: Depending on arm location, robot will face rear side to arm then move slightly forward
         self.move_slightly_forward(arm_postion)
 
+
+        self.arm.go_to(0, math.radians(0))
+
+        theta1_i = 0
+        theta2_i = 0
+
+        self.arm.open_gripper()
+        self.time.sleep(5)
+        [theta1_i, theta2_i] = self.inverse_kinematics(0.98, 0.17, theta1_i, theta2_i)
+        print(math.degrees(theta1_i), math.degrees(theta2_i), 'theta 1 and 2 initial')
+        self.arm.close_gripper()
+        self.time.sleep(10)
+
+
+
+        [theta1_i, theta2_i] = self.inverse_kinematics(.9, 0.4, theta1_i, theta2_i)
+        joint_1_rotate = 0
+        for i in range(0,50):
+            self.arm.go_to(0, math.radians(joint_1_rotate))
+            joint_1_rotate = joint_1_rotate - 2
+            self.time.sleep(.5)
+
+
+        shelf_number = 4
+
+        if shelf_number == 1:
+            self.inverse_kinematics(.9, 0.2, theta1_i, theta2_i)
+            for i in range(0,15):
+                self.arm.go_to(0, math.radians(joint_1_rotate))
+                joint_1_rotate = joint_1_rotate - 2
+                self.time.sleep(.5)
+        elif shelf_number == 2:
+            self.inverse_kinematics(.9, 0.55, theta1_i, theta2_i)
+            for i in range(0,15):
+                self.arm.go_to(0, math.radians(joint_1_rotate))
+                joint_1_rotate = joint_1_rotate - 2
+                self.time.sleep(.5)
+        elif shelf_number == 3:
+            self.inverse_kinematics(.9, 0.9, theta1_i, theta2_i)
+
+            joint_6_rotation = 0
+            for j in range(0,5):
+                self.arm.go_to(5, math.radians(joint_6_rotation))
+                joint_6_rotation = joint_6_rotation + 2
+                self.time.sleep(.5)
+
+            for i in range(0,15):
+                self.arm.go_to(0, math.radians(joint_1_rotate))
+                joint_1_rotate = joint_1_rotate - 2
+                self.time.sleep(.5)
+        elif shelf_number == 4:
+            self.inverse_kinematics(.45, 1.27, theta1_i, theta2_i)
+            joint_6_rotation = 0
+            for i in range(0,15):
+                self.arm.go_to(5, math.radians(joint_6_rotation))
+                joint_6_rotation = joint_6_rotation + 2
+                self.time.sleep(.5)
+
+
+            for j in range(0,40):
+                self.arm.go_to(0, math.radians(joint_1_rotate))
+                joint_1_rotate = joint_1_rotate - 2
+                self.time.sleep(.5)
+        else:
+            print('not valid')
+
+        """
         # Put Arm Down and close gripper
         ang = 1.0
 
@@ -328,7 +415,7 @@ class Run:
             ang = ang - 1.0555
         
         self.time.sleep(100)
-       
+        """
        
 
 
