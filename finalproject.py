@@ -147,7 +147,8 @@ class Run:
                     angle = angle + 10
                     if distance_from_estimate < 0.2:
                         self.is_localized = True
-        print("Goal Reached")
+                print("Localization Complete\n")
+        print("Goal Reached\n")
              
 
     def visualize(self):
@@ -192,9 +193,11 @@ class Run:
 
         # If Arm is on South
         else:
-            pass
+            p = (((position[0])*100), self.map.height - ((position[1] + 0.96) * 100))
+            return p
 
     def move_slightly_forward(self, position):
+        print("Moving Forward")
         # If arm on East or West
         if 0.0250 <= position[1] <= 3.0250:
             if position[0] < 0.0250:
@@ -204,10 +207,10 @@ class Run:
                 self.sleep(2)
                 self.create.drive_direct(0,0)
             else:
-                self.go_to_angle(math.radians(0))
-                self.time.sleep(5)
-                self.create.drive_direct(40,40)
-                self.sleep(1)
+                self.create.drive_direct(50,50)
+                self.sleep(3.2)
+                self.create.drive_direct(-20,20)
+                self.time.sleep(1)
                 self.create.drive_direct(0,0)
 
         # If Arm is on North
@@ -220,7 +223,11 @@ class Run:
 
         # If Arm is on South
         else:
-            pass
+            self.go_to_angle(math.radians(90))
+            self.time.sleep(5)
+            self.create.drive_direct(39,39)
+            self.sleep(1)
+            self.create.drive_direct(0,0)
 
 
     def forward_kinematics(self, theta1, theta2):
@@ -311,7 +318,7 @@ class Run:
             ang = ang + 1.0772
 
         self.arm.close_gripper()
-        self.time.sleep(5)
+        self.time.sleep(10)
 
         ang = 63.33
 
