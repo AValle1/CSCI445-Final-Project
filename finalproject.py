@@ -11,6 +11,13 @@ import particle_filter
 import rrt
 import numpy as np
 
+"""
+Programmers:
+
+    Andrew Valle
+    John Rogers
+
+"""
 
 class Run:
     def __init__(self, factory):
@@ -132,7 +139,6 @@ class Run:
 
                 while(self.is_localized == False):
                     self.go_to_angle(math.radians(angle))
-                    self.visualize()
                     my_position = self.create.sim_get_position()
                     curr_x, curr_y, curr_theta = self.pf.get_estimate()
                     dist = self.sonar.get_distance()
